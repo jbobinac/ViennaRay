@@ -13,24 +13,6 @@
 #include <rayTracingData.hpp>
 
 template <class NumericType, int D> class rayTrace {
-private:
-  RTCDevice mDevice;
-  rayGeometry<NumericType, D> mGeometry;
-  std::unique_ptr<rayAbstractParticle<NumericType>> mParticle = nullptr;
-  size_t mNumberOfRaysPerPoint = 1000;
-  size_t mNumberOfRaysFixed = 0;
-  NumericType mDiskRadius = 0;
-  NumericType mGridDelta = 0;
-  rayTraceBoundary mBoundaryConds[D] = {};
-  rayTraceDirection mSourceDirection = rayTraceDirection::POS_Z;
-  bool mUseRandomSeeds = false;
-  size_t mRunNumber = 0;
-  bool mCalcFlux = true;
-  rayHitCounter<NumericType> mHitCounter;
-  rayTracingData<NumericType> mLocalData;
-  rayTracingData<NumericType> *mGlobalData = nullptr;
-  rayTraceInfo mRTInfo;
-
 public:
   rayTrace() : mDevice(rtcNewDevice("hugepages=1")) {}
 
@@ -100,7 +82,7 @@ public:
                   "Setting 2D geometry in 3D trace object");
 
     mGridDelta = gridDelta;
-    mDiskRadius = gridDelta * rayInternal::DiskFactor;
+    mDiskRadius = gridDelta * rayInternal::DiskFactor<D>;
     mGeometry.initGeometry(mDevice, points, normals, mDiskRadius);
   }
 
@@ -202,16 +184,26 @@ public:
     }
 
     case rayNormalizationType::SOURCE: {
-      NumericType sourceGridPoints = getNumberOfSourceGridPoints();
+      NumericType sourceArea = getSourceArea();
       auto numTotalRays = mNumberOfRaysFixed == 0
                               ? flux.size() * mNumberOfRaysPerPoint
                               : mNumberOfRaysFixed;
-      NumericType normFactor = sourceGridPoints / numTotalRays;
+      NumericType normFactor = sourceArea / numTotalRays;
+      if constexpr (D == 2) {
+        for (size_t idx = 0; idx < flux.size(); ++idx) {
+          if (std::abs(diskArea[idx] - totalDiskArea) > 1e-6) {
+            flux[idx] *= normFactor / mDiskRadius;
+          } else {
+            flux[idx] *= normFactor / (2 * mDiskRadius);
+          }
+        }
+      } else {
 #pragma omp parallel for
-      for (size_t idx = 0; idx < flux.size(); ++idx) {
-        flux[idx] *= (totalDiskArea / diskArea[idx]) * normFactor;
+        for (size_t idx = 0; idx < flux.size(); ++idx) {
+          flux[idx] *= normFactor / diskArea[idx];
+        }
+        break;
       }
-      break;
     }
 
     default:
@@ -255,32 +247,30 @@ public:
   rayTraceInfo getRayTraceInfo() { return mRTInfo; }
 
 private:
-  NumericType getNumberOfSourceGridPoints() {
+  NumericType getSourceArea() {
     const auto boundingBox = mGeometry.getBoundingBox();
-    NumericType sourceGridPoints = 0;
+    NumericType sourceArea = 0;
 
     if (mSourceDirection == rayTraceDirection::NEG_X ||
         mSourceDirection == rayTraceDirection::POS_X) {
-      sourceGridPoints = (boundingBox[1][1] - boundingBox[0][1]) / mGridDelta;
+      sourceArea = (boundingBox[1][1] - boundingBox[0][1]);
       if constexpr (D == 3) {
-        sourceGridPoints *=
-            (boundingBox[1][2] - boundingBox[0][2]) / mGridDelta;
+        sourceArea *= (boundingBox[1][2] - boundingBox[0][2]);
       }
     } else if (mSourceDirection == rayTraceDirection::NEG_Y ||
                mSourceDirection == rayTraceDirection::POS_Y) {
-      sourceGridPoints = (boundingBox[1][0] - boundingBox[0][0]) / mGridDelta;
+      sourceArea = (boundingBox[1][0] - boundingBox[0][0]);
       if constexpr (D == 3) {
-        sourceGridPoints *=
-            (boundingBox[1][2] - boundingBox[0][2]) / mGridDelta;
+        sourceArea *= (boundingBox[1][2] - boundingBox[0][2]);
       }
     } else if (mSourceDirection == rayTraceDirection::NEG_Z ||
                mSourceDirection == rayTraceDirection::POS_Z) {
       assert(D == 3 && "Error in flux normalization");
-      sourceGridPoints = (boundingBox[1][0] - boundingBox[0][0]) / mGridDelta;
-      sourceGridPoints *= (boundingBox[1][1] - boundingBox[0][1]) / mGridDelta;
+      sourceArea = (boundingBox[1][0] - boundingBox[0][0]);
+      sourceArea *= (boundingBox[1][1] - boundingBox[0][1]);
     }
 
-    return sourceGridPoints;
+    return sourceArea;
   }
 
   void checkSettings() {
@@ -313,6 +303,24 @@ private:
     _MM_SET_DENORMALS_ZERO_MODE(_MM_DENORMALS_ZERO_ON);
 #endif
   }
+
+private:
+  RTCDevice mDevice;
+  rayGeometry<NumericType, D> mGeometry;
+  std::unique_ptr<rayAbstractParticle<NumericType>> mParticle = nullptr;
+  size_t mNumberOfRaysPerPoint = 1000;
+  size_t mNumberOfRaysFixed = 0;
+  NumericType mDiskRadius = 0;
+  NumericType mGridDelta = 0;
+  rayTraceBoundary mBoundaryConds[D] = {};
+  rayTraceDirection mSourceDirection = rayTraceDirection::POS_Z;
+  bool mUseRandomSeeds = false;
+  size_t mRunNumber = 0;
+  bool mCalcFlux = true;
+  rayHitCounter<NumericType> mHitCounter;
+  rayTracingData<NumericType> mLocalData;
+  rayTracingData<NumericType> *mGlobalData = nullptr;
+  rayTraceInfo mRTInfo;
 };
 
 #endif // RAY_TRACE_HPP

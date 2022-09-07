@@ -49,7 +49,7 @@ rayReflectionDiffuse(const rayTriple<NumericType> &geomNormal, rayRNG &RNG) {
 }
 
 // Coned cosine reflection
-template <typename NumericType>
+template <typename NumericType, int D>
 static rayTriple<NumericType> rayReflectionConedCosine(
     NumericType avgReflAngle, const rayTriple<NumericType> &rayDir,
     const rayTriple<NumericType> &geomNormal, rayRNG &RNG) {
@@ -119,8 +119,10 @@ static rayTriple<NumericType> rayReflectionConedCosine(
     randomDir[1] =
         a1 * costheta_p_a0_tmp_sinphi + specDirection[2] * tmp_cosphi;
     randomDir[2] =
-        specDirection[2] * costheta_p_a0_tmp_sinphi - a1 * tmp_cosphi;
+        (D == 3) ? specDirection[2] * costheta_p_a0_tmp_sinphi - a1 * tmp_cosphi
+                 : 0.;
 
+    rayInternal::Normalize(randomDir);
     if (a0 != specDirection[0])
       std::swap(randomDir[0], randomDir[1]);
   } while (rayInternal::DotProduct(randomDir, geomNormal) <= 0.);

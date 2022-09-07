@@ -3,17 +3,17 @@
 #include <rayGeometry.hpp>
 #include <rayTestAsserts.hpp>
 #include <rayUtil.hpp>
-// void printRay(RTCRayHit &rayHit)
-// {
-//     std::cout << "Origin: ";
-//     rtInternal::printTriple(rtTriple<float>{rayHit.ray.org_x,
-//     rayHit.ray.org_y, rayHit.ray.org_z}); std::cout << "Direction: ";
-//     rtInternal::printTriple(rtTriple<float>{rayHit.ray.dir_x,
-//     rayHit.ray.dir_y, rayHit.ray.dir_z}); std::cout << "Geometry normal: ";
-//     rtInternal::printTriple(rtTriple<float>{rayHit.hit.Ng_x, rayHit.hit.Ng_y,
-//     rayHit.hit.Ng_z}); std::cout << "Primitive ID: "; std::cout <<
-//     rayHit.hit.primID << std::endl;
-// }
+void printRay(RTCRayHit &rayHit)
+{
+    /*std::cout << "Origin: ";
+    rtInternal::printTriple(rtTriple<float>{rayHit.ray.org_x,
+    rayHit.ray.org_y, rayHit.ray.org_z}); std::cout << "Direction: ";
+    rtInternal::printTriple(rtTriple<float>{rayHit.ray.dir_x,
+    rayHit.ray.dir_y, rayHit.ray.dir_z}); std::cout << "Geometry normal: ";
+    rtInternal::printTriple(rtTriple<float>{rayHit.hit.Ng_x, rayHit.hit.Ng_y,
+    rayHit.hit.Ng_z}); */std::cout << "Primitive ID: "; std::cout <<
+    rayHit.hit.primID << std::endl;
+}
 
 int main() {
   constexpr int D = 3;
@@ -76,7 +76,11 @@ int main() {
     rayhit.hit.instID[0] = RTC_INVALID_GEOMETRY_ID;
     rayhit.hit.geomID = RTC_INVALID_GEOMETRY_ID;
 
+    printRay(rayhit);
+
     rtcIntersect1(rtcscene, &rtccontext, &rayhit);
+
+    printRay(rayhit);
 
     RAYTEST_ASSERT(rayhit.hit.geomID == geometryID)
     RAYTEST_ASSERT(rayhit.hit.primID == 840)
